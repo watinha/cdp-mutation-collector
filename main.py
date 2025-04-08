@@ -1,8 +1,10 @@
 from selenium import webdriver
+from selenium.webdriver import ActionChains
+from selenium.webdriver.common.by import By
 
 
 options = webdriver.ChromeOptions()
-options.add_argument('--headless=new')
+#options.add_argument('--headless=new')
 options.add_argument('--window-size=1920,1080')
 options.add_argument('--disable-feature=Translate')
 options.add_argument('--disable-search-engine-choice-screen')
@@ -45,8 +47,9 @@ all_nodeIds = driver.execute_cdp_cmd('DOM.querySelectorAll', {
     'selector': 'html > body *'
 })['nodeIds']
 
-event_types = ['blur', 'change', 'click', 'focus', 'input', 'keydown', 'keypress',
-               'keyup', 'mousedown', 'mouseup', 'mouseover', 'mouseout', 'mousemove']
+event_types = [ 'click', 'focus', 'keydown', 'keypress', 
+                'keyup', 'change', 'input', 'mouseover' ]
+                #'blur', 'mousedown', 'mouseup', 'mouseout', 'mousemove']
 
 nodes_with_listeners = []
 for i, nodeId in enumerate(all_nodeIds):
@@ -74,13 +77,43 @@ for i, nodeId in enumerate(all_nodeIds):
 
         nodes_with_listeners.append({
             'node': node,
+            'className': f'.event-listener.website-collector-{i}',
             'html': driver.execute_cdp_cmd(
                 'DOM.getOuterHTML', {'nodeId': nodeId})['outerHTML'],
             'events': node_events
         })
 
 
-l = driver.execute_script('''	
+print(len(nodes_with_listeners))
+print(nodes_with_listeners)
+
+
+for node in nodes_with_listeners:
+    events = node['events']
+    className = node['className']
+    chain = ActionChains(driver)
+
+    for event in events:
+        try:
+            target = driver.find_element(
+                By.CSS_SELECTOR, className)
+            ariaExpanded = target.get_attribute('aria-expanded')
+            textContent = target.get_attribute('textContent')
+
+            if event == 'mouseover':
+                chain.move_to_element(target).pause(2).perform()
+            if (ariaExpanded is not None and ariaExpanded == 'false' and event == 'click') or event == 'focus':
+                print(f'{className} {event} {ariaExpanded} {textContent}')
+                chain.move_to_element(target).pause(1).click().pause(2).perform()
+            if event == 'keydown' or event == 'keyup' or event == 'keypress' or event == 'change' or event == 'input':
+                print(f'{className} {event} {ariaExpanded} {textContent}')
+                chain.move_to_element(target).send_keys('a').pause(2).perform()
+        except Exception as e:
+            print(e)
+            break
+
+
+l = driver.execute_script('''
 
 var list = window.mutations_observed;
 window.mutations_observed = [];
