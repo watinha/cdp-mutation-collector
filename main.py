@@ -1,7 +1,12 @@
+import sys, os
+
 from selenium import webdriver
 from selenium.webdriver import ActionChains
 from selenium.webdriver.common.by import By
 
+
+_, url = sys.argv
+domain = url.split('://www.')[1].split('/').pop()
 
 options = webdriver.ChromeOptions()
 #options.add_argument('--headless=new')
@@ -12,9 +17,12 @@ options.add_argument('--disable-search-engine-choice-screen')
 driver = webdriver.Remote(
         command_executor='http://172.17.0.1:1234', options=options)
 
-driver.get('http://www.google.com')
+driver.get(url)
 driver.implicitly_wait(10)
-driver.save_screenshot('screenshot.png')
+
+if not os.path.isdir(f'./results/{domain}'):
+    os.mkdir(f'./results/{domain}')
+driver.save_screenshot('./results/{domain}/screenshot.png')
 
 driver.execute_script('''
 
@@ -84,10 +92,6 @@ for i, nodeId in enumerate(all_nodeIds):
         })
 
 
-print(len(nodes_with_listeners))
-print(nodes_with_listeners)
-
-
 for node in nodes_with_listeners:
     events = node['events']
     className = node['className']
@@ -102,12 +106,13 @@ for node in nodes_with_listeners:
 
             if event == 'mouseover':
                 chain.move_to_element(target).pause(2).perform()
+                driver.save_screenshot(f'./results/{domain}/screenshot-{className}-hover.png')
             if (ariaExpanded is not None and ariaExpanded == 'false' and event == 'click') or event == 'focus':
-                print(f'{className} {event} {ariaExpanded} {textContent}')
                 chain.move_to_element(target).pause(1).click().pause(2).perform()
+                driver.save_screenshot(f'./results/{domain}/screenshot-{className}-focus.png')
             if event == 'keydown' or event == 'keyup' or event == 'keypress' or event == 'change' or event == 'input':
-                print(f'{className} {event} {ariaExpanded} {textContent}')
                 chain.move_to_element(target).send_keys('a').pause(2).perform()
+                driver.save_screenshot(f'./results/{domain}/screenshot-{className}-key.png')
         except Exception as e:
             print(e)
             break
@@ -295,7 +300,9 @@ window.mutations_observed = [];
 return [get_all_features(target), list.map((el) => get_all_features(el))];
         ''')
 
-        print(list_of_mutations)
+        with open(f'./results/{domain}/mutations-{className}.json', 'w') as f:
+            f.write(str(list_of_mutations))
+
 
 driver.quit()
 
