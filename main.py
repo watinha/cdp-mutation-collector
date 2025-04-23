@@ -12,21 +12,29 @@ browser_width = 1080
 browser_height = 1920
 
 options = webdriver.ChromeOptions()
-options.add_argument('--headless=new')
+#options.add_argument('--headless')
 options.add_argument(f'--window-size={browser_height},{browser_width}')
+options.add_argument('--no-sandbox')
+options.add_argument('--disable-dev-shm-usage')
+options.add_argument('--disable-gpu')
+options.add_argument('--remote-debugging-port=9222')
+options.add_argument('--disable-extensions')
 options.add_argument('--disable-feature=Translate')
 options.add_argument('--disable-search-engine-choice-screen')
 
 driver = webdriver.Remote(
         command_executor='http://172.17.0.1:1234', options=options)
 
+print(f'Starting Chromium and opening {url}...')
 driver.get(url)
 driver.implicitly_wait(10)
 
-if not os.path.isdir(f'./{results}/{domain}'):
-    os.mkdir(f'./{results}/{domain}')
-driver.save_screenshot('./{results}/{domain}/screenshot.png')
+print(f'Setting results directory in ./{results_dir}/{domain}...')
+if not os.path.isdir(f'./{results_dir}/{domain}'):
+    os.mkdir(f'./{results_dir}/{domain}')
+driver.save_screenshot('./{results_dir}/{domain}/screenshot.png')
 
+print('Setting up MutationObserver...')
 driver.execute_script('''
 
 window.mutations_observed = [];
@@ -51,6 +59,7 @@ observer.observe(document.body, {
 
 ''')
 
+print('Searching for event listeners...')
 root_nodeId = driver.execute_cdp_cmd('DOM.getDocument', {})['root']['nodeId']
 
 all_nodeIds = driver.execute_cdp_cmd('DOM.querySelectorAll', {
@@ -94,7 +103,8 @@ for i, nodeId in enumerate(all_nodeIds):
             'events': node_events
         })
 
-
+print(f'Found {len(nodes_with_listeners)} nodes with event listeners.')
+print('Dispatching events, recording mutations and taking screenshots...')
 for node in nodes_with_listeners:
     events = node['events']
     className = node['className']
@@ -109,13 +119,13 @@ for node in nodes_with_listeners:
 
             if event == 'mouseover':
                 chain.move_to_element(target).pause(2).perform()
-                driver.save_screenshot(f'./{results}/{domain}/screenshot-{className}-hover.png')
+                driver.save_screenshot(f'./{results_dir}/{domain}/screenshot-{className}-hover.png')
             if (ariaExpanded is not None and ariaExpanded == 'false' and event == 'click') or event == 'focus':
                 chain.move_to_element(target).pause(1).click().pause(2).perform()
-                driver.save_screenshot(f'./{results}/{domain}/screenshot-{className}-focus.png')
+                driver.save_screenshot(f'./{results_dir}/{domain}/screenshot-{className}-focus.png')
             if event == 'keydown' or event == 'keyup' or event == 'keypress' or event == 'change' or event == 'input':
                 chain.move_to_element(target).send_keys('a').pause(2).perform()
-                driver.save_screenshot(f'./{results}/{domain}/screenshot-{className}-key.png')
+                driver.save_screenshot(f'./{results_dir}/{domain}/screenshot-{className}-key.png')
         except Exception as e:
             print(e)
             break
@@ -303,9 +313,12 @@ window.mutations_observed = [];
 return [get_all_features(target), list.map((el) => get_all_features(el))];
         ''')
 
-        with open(f'./{results}/{domain}/mutations-{className}.json', 'w') as f:
+        print(f'Found {len(list_of_mutations[1])} mutations for {className}-{event}.')
+        print(f'Writing mutations to {results_dir}/{domain}/mutations-{className}-{event}.json...')
+        with open(f'./{results_dir}/{domain}/mutations-{className}-{event}.json', 'w') as f:
             f.write(str(list_of_mutations))
 
+        print('\n')
 
 driver.quit()
 
