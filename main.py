@@ -9,10 +9,10 @@ _, url = sys.argv
 domain = url.split('://www.')[1].split('/').pop()
 results_dir = 'results'
 browser_width = 1080
-browser_height = 1920
+browser_height = 1080
 
 options = webdriver.ChromeOptions()
-#options.add_argument('--headless')
+options.add_argument('--headless')
 options.add_argument(f'--window-size={browser_height},{browser_width}')
 options.add_argument('--no-sandbox')
 options.add_argument('--disable-dev-shm-usage')
@@ -114,6 +114,12 @@ for node in nodes_with_listeners:
         try:
             target = driver.find_element(
                 By.CSS_SELECTOR, className)
+
+            rectangle = target.rect
+            if target.is_displayed() == False or rectangle['width'] == 0 or rectangle['height'] == 0 or rectangle['x'] >= browser_width or rectangle['y'] == browser_height:
+                print(f'Skipping {className} because it is not visible.')
+                break
+
             ariaExpanded = target.get_attribute('aria-expanded')
             textContent = target.get_attribute('textContent')
 
@@ -130,6 +136,7 @@ for node in nodes_with_listeners:
             print(e)
             break
 
+        driver.implicitly_wait(3)
         js_get_target = f'let className = "{className}"; let target = document.querySelector(className);'
         list_of_mutations = driver.execute_script(js_get_target + '''
 
