@@ -2,3 +2,4 @@ screenshot.png
 *.swp
 *.pyc
 url-list.txt
+results/*
