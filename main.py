@@ -6,7 +6,7 @@ from selenium.webdriver.common.by import By
 
 
 _, url = sys.argv
-domain = url.split('://www.')[1].split('/').pop()
+domain = url.split('://')[1].split('/').pop()
 results_dir = 'results'
 browser_width = 1080
 browser_height = 1080
