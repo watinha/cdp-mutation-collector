@@ -8,12 +8,12 @@ from selenium.webdriver.common.by import By
 _, url = sys.argv
 domain = url.split('://')[1].split('/').pop()
 results_dir = 'results'
-browser_width = 1080
+browser_width = 1400
 browser_height = 1080
 
 options = webdriver.ChromeOptions()
-#options.add_argument('--headless')
-options.add_argument(f'--window-size={browser_height},{browser_width}')
+options.add_argument('--headless')
+options.add_argument(f'--window-size={browser_width},{browser_height}')
 options.add_argument('--no-sandbox')
 options.add_argument('--disable-dev-shm-usage')
 options.add_argument('--disable-gpu')
@@ -34,9 +34,7 @@ print(f'Setting results directory in ./{results_dir}/{domain}...')
 if not os.path.isdir(f'./{results_dir}/{domain}'):
     os.mkdir(f'./{results_dir}/{domain}')
 
-time.sleep(2)
-driver.save_screenshot('./{results_dir}/{domain}/screenshot.png')
-time.sleep(2)
+driver.save_screenshot(f'./{results_dir}/{domain}/screenshot.png')
 
 print('Setting up MutationObserver...')
 
@@ -330,9 +328,10 @@ for node in nodes_with_listeners:
             break
 
 
-        print(f'Writing mutations to {results_dir}/{domain}/mutations-{className}-{event}.json...')
-        with open(f'./{results_dir}/{domain}/mutations-{className}-{event}.json', 'w') as f:
-            f.write(str(list_of_mutations))
+        if len(list_of_mutations[1]) > 0:
+            print(f'Writing mutations to {results_dir}/{domain}/mutations-{className}-{event}.json...')
+            with open(f'./{results_dir}/{domain}/mutations-{className}-{event}.json', 'w') as f:
+                f.write(str(list_of_mutations))
 
         print('\n')
 
