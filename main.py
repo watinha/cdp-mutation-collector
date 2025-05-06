@@ -1,4 +1,4 @@
-import sys, os
+import sys, os, time
 
 from selenium import webdriver
 from selenium.webdriver import ActionChains
@@ -12,7 +12,7 @@ browser_width = 1080
 browser_height = 1080
 
 options = webdriver.ChromeOptions()
-options.add_argument('--headless')
+#options.add_argument('--headless')
 options.add_argument(f'--window-size={browser_height},{browser_width}')
 options.add_argument('--no-sandbox')
 options.add_argument('--disable-dev-shm-usage')
@@ -27,14 +27,19 @@ driver = webdriver.Remote(
 
 print(f'Starting Chromium and opening {url}...')
 driver.get(url)
+time.sleep(10)
 driver.implicitly_wait(10)
 
 print(f'Setting results directory in ./{results_dir}/{domain}...')
 if not os.path.isdir(f'./{results_dir}/{domain}'):
     os.mkdir(f'./{results_dir}/{domain}')
+
+time.sleep(2)
 driver.save_screenshot('./{results_dir}/{domain}/screenshot.png')
+time.sleep(2)
 
 print('Setting up MutationObserver...')
+
 driver.execute_script('''
 
 window.mutations_observed = [];
@@ -132,195 +137,199 @@ for node in nodes_with_listeners:
             if event == 'keydown' or event == 'keyup' or event == 'keypress' or event == 'change' or event == 'input':
                 chain.move_to_element(target).send_keys('a').pause(2).perform()
                 driver.save_screenshot(f'./{results_dir}/{domain}/screenshot-{className}-key.png')
+
+            driver.implicitly_wait(3)
+            time.sleep(3)
+            js_get_target = f'let className = "{className}"; let target = document.querySelector(className);'
+            list_of_mutations = driver.execute_script(js_get_target + '''
+
+    function count_words (el) {
+        const childs = el.querySelectorAll('*');
+        let childs_count = 0,
+            word_count = 0;
+        for (let i = 0; i < childs.length; i++) {
+            const target = childs[i];
+            if (target.children.length === 0) {
+                childs_count++;
+                word_count += target.textContent.split(' ').length;
+            }
+        }
+        if (childs_count === 0) return 0;
+        return word_count / childs_count;
+    }
+    function offset (el) {
+        const rect = el.getBoundingClientRect(),
+              win = el.ownerDocument.defaultView;
+        return {
+            top: rect.top + win.pageYOffset,
+            left: rect.left + win.pageXOffset
+        };
+    }
+    function dimension (el) {
+        return {
+            height: (el.offsetHeight ? el.offsetHeight : 0),
+            width: (el.offsetWidth ? el.offsetWidth : 0)
+        };
+    }
+    function landmark_parent (el) {
+        if (!el)
+            return false;
+        const tagname = el.tagName.toLowerCase();
+        if ((tagname === 'footer' || tagname === 'aside' || tagname === 'main' ||
+            tagname === 'form' || tagname === 'header') && label_for(el))
+            return tagname;
+        if (tagname === 'nav' || tagname === 'section') {
+            return tagname;
+        }
+        const role = el.getAttribute('role');
+        if (role) {
+            return role;
+        }
+        return landmark_parent (el.parentElement);
+    }
+    function label_for (el) {
+        const labelledby = el.getAttribute('aria-labelledby'),
+              label = el.getAttribute('aria-label'),
+              title = el.getAttribute('title');
+
+        if (labelledby || label || title) {
+            return `${el.className} ${labelledby} ${label} ${title}`;
+        }
+        return false;
+    }
+    function get_xpath (target) {
+        var xpath = '', tagName, parent = target.parentElement,
+            index, children;
+        while (parent != null) {
+            tagName = target.tagName.toLowerCase();
+            children = [].slice.call(parent.children);
+            index = children.indexOf(target) + 1;
+            xpath = '/' + tagName + '[' + index + ']' + xpath;
+            target = parent;
+            parent = target.parentElement;
+        };
+        return xpath;
+    }
+    function calculate_weighted_avg (el, attr_call, weight) {
+       let childs = Array.from(el.children),
+           weighted_sum = 0,
+           size = childs.length;
+
+        childs.forEach((child) => {
+            const result = calculate_weighted_avg(child, attr_call, weight / 2);
+            weighted_sum += attr_call(child) * weight + result.weighted_sum;
+            size += result.size;
+        });
+
+        return { weighted_sum, size, weighted_avg: weighted_sum / size };
+    }
+    function get_all_features(el) {
+        const position = offset(el);
+        const tags = [
+            'a', 'abbr', 'acronym', 'address', 'applet', 'area',
+            'article', 'aside', 'audio', 'b', 'base', 'basefont',
+            'bdi', 'bdo', 'big', 'blockquote', 'body', 'br', 'button',
+            'canvas', 'caption', 'center', 'cite', 'code', 'col',
+            'colgroup', 'data', 'datalist', 'dd', 'del', 'details',
+            'dfn', 'dialog', 'dir', 'div', 'dl', 'dt', 'em', 'embed',
+            'fieldset', 'figcaption', 'figure', 'font', 'footer',
+            'form', 'frame', 'frameset',
+            'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'head', 'header',
+            'hr', 'html', 'i', 'iframe', 'img', 'input', 'ins', 'kbd',
+            'label', 'legend', 'li', 'link', 'main', 'map', 'mark',
+            'meta', 'meter', 'nav', 'noframes', 'noscript', 'object',
+            'ol', 'optgroup', 'option', 'output', 'p', 'param',
+            'picture', 'pre', 'progress', 'q', 'rp', 'rt', 'ruby',
+            's', 'samp', 'script', 'section', 'select', 'small',
+            'source', 'span', 'strike', 'strong', 'style', 'sub',
+            'summary', 'sup', 'svg', 'table', 'tbody', 'td', 'template',
+            'textarea', 'tfoot', 'th', 'thead', 'time', 'title', 'tr',
+            'track', 'tt', 'u', 'ul', 'var', 'video', 'wbr'];
+
+        let counter = {};
+        tags.forEach((tag) => {
+            counter[`${tag}_count`] = el.querySelectorAll(tag).length;
+        });
+
+        let averages = {};
+        if (el.children.length > 0) {
+            averages.avg_top = Array.from(el.children).reduce((acc, child) =>
+                    acc + (offset(child).top - position.top), 0) / el.children.length;
+            averages.weighted_top = calculate_weighted_avg(el, (elem) =>
+                    offset(elem).top - position.top, 1).weighted_avg;
+            averages.sd_top = Math.sqrt(Array.from(el.children).reduce((acc, child) =>
+                    acc + ((averages.avg_top - offset(child).top)**2), 0) / el.children.length);
+
+            averages.avg_left = Array.from(el.children).reduce((acc, child) =>
+                    acc + (offset(child).left - position.left), 0) / el.children.length;
+            averages.weighted_left = calculate_weighted_avg(el, (elem) =>
+                    offset(elem).left - position.left, 1).weighted_avg;
+            averages.sd_left = Math.sqrt(Array.from(el.children).reduce((acc, child) =>
+                    acc + ((averages.avg_left - offset(child).left)**2), 0) / el.children.length);
+
+            averages.avg_height = Array.from(el.children).reduce((acc, child) =>
+                    acc + (dimension(child).height - dimension(el).height), 0) / el.children.length;
+            averages.weighted_height = calculate_weighted_avg(el, (elem) =>
+                    dimension(elem).height, 1).weighted_avg;
+            averages.sd_height = Math.sqrt(Array.from(el.children).reduce((acc, child) =>
+                    acc + ((averages.avg_height - dimension(child).height)**2), 0) / el.children.length);
+
+            averages.avg_width = Array.from(el.children).reduce((acc, child) =>
+                    acc + (dimension(child).width - dimension(el).width), 0) / el.children.length;
+            averages.weighted_width = calculate_weighted_avg(el, (elem) =>
+                    dimension(elem).width, 1).weighted_avg;
+            averages.sd_width = Math.sqrt(Array.from(el.children).reduce((acc, child) =>
+                    acc + ((averages.avg_width - dimension(child).width)**2), 0) / el.children.length);
+        } else {
+            averages.avg_top = -1;
+            averages.weighted_top = -1;
+            averages.sd_top = -1;
+            averages.avg_left = -1;
+            averages.weighted_left = -1;
+            averages.sd_left = -1;
+            averages.avg_height = -1;
+            averages.weighted_height = -1;
+            averages.sd_height = -1;
+            averages.avg_width = -1;
+            averages.weighted_width = -1;
+            averages.sd_width = -1;
+        }
+
+        let body = document.body, html = document.documentElement;
+        return {
+            url: window.location.href,
+            tagName: el.tagName,
+            role: el.getAttribute('role'),
+            top: position.top,
+            left: position.left,
+            height: dimension(el).height,
+            width: dimension(el).width,
+            childs_count: el.querySelectorAll('*').length,
+            window_height: Math.max(body.scrollHeight, body.offsetHeight, html.clientHeight, html.scrollHeight, html.offsetHeight),
+            window_elements_count: document.querySelectorAll('*').length,
+            className: el.className,
+            parent_landmark: landmark_parent(el.parentElement),
+            label: label_for(el),
+            xpath: get_xpath(el),
+            word_count: count_words(el),
+            ...counter,
+            ...averages
+        };
+    };
+
+
+    var list = window.mutations_observed;
+    window.mutations_observed = [];
+    return [get_all_features(target), list.map((el) => get_all_features(el))];
+            ''')
+
+            print(f'Found {len(list_of_mutations[1])} mutations for {className}-{event}.')
+
         except Exception as e:
             print(e)
             break
 
-        driver.implicitly_wait(3)
-        js_get_target = f'let className = "{className}"; let target = document.querySelector(className);'
-        list_of_mutations = driver.execute_script(js_get_target + '''
 
-function count_words (el) {
-    const childs = el.querySelectorAll('*');
-    let childs_count = 0,
-        word_count = 0;
-    for (let i = 0; i < childs.length; i++) {
-        const target = childs[i];
-        if (target.children.length === 0) {
-            childs_count++;
-            word_count += target.textContent.split(' ').length;
-        }
-    }
-    if (childs_count === 0) return 0;
-    return word_count / childs_count;
-}
-function offset (el) {
-    const rect = el.getBoundingClientRect(),
-          win = el.ownerDocument.defaultView;
-    return {
-        top: rect.top + win.pageYOffset,
-        left: rect.left + win.pageXOffset
-    };
-}
-function dimension (el) {
-    return {
-        height: (el.offsetHeight ? el.offsetHeight : 0),
-        width: (el.offsetWidth ? el.offsetWidth : 0)
-    };
-}
-function landmark_parent (el) {
-    if (!el)
-        return false;
-    const tagname = el.tagName.toLowerCase();
-    if ((tagname === 'footer' || tagname === 'aside' || tagname === 'main' ||
-        tagname === 'form' || tagname === 'header') && label_for(el))
-        return tagname;
-    if (tagname === 'nav' || tagname === 'section') {
-        return tagname;
-    }
-    const role = el.getAttribute('role');
-    if (role) {
-        return role;
-    }
-    return landmark_parent (el.parentElement);
-}
-function label_for (el) {
-    const labelledby = el.getAttribute('aria-labelledby'),
-          label = el.getAttribute('aria-label'),
-          title = el.getAttribute('title');
-
-    if (labelledby || label || title) {
-        return `${el.className} ${labelledby} ${label} ${title}`;
-    }
-    return false;
-}
-function get_xpath (target) {
-    var xpath = '', tagName, parent = target.parentElement,
-        index, children;
-    while (parent != null) {
-        tagName = target.tagName.toLowerCase();
-        children = [].slice.call(parent.children);
-        index = children.indexOf(target) + 1;
-        xpath = '/' + tagName + '[' + index + ']' + xpath;
-        target = parent;
-        parent = target.parentElement;
-    };
-    return xpath;
-}
-function calculate_weighted_avg (el, attr_call, weight) {
-   let childs = Array.from(el.children),
-       weighted_sum = 0,
-       size = childs.length;
-
-    childs.forEach((child) => {
-        const result = calculate_weighted_avg(child, attr_call, weight / 2);
-        weighted_sum += attr_call(child) * weight + result.weighted_sum;
-        size += result.size;
-    });
-
-    return { weighted_sum, size, weighted_avg: weighted_sum / size };
-}
-function get_all_features(el) {
-    const position = offset(el);
-    const tags = [
-        'a', 'abbr', 'acronym', 'address', 'applet', 'area',
-        'article', 'aside', 'audio', 'b', 'base', 'basefont',
-        'bdi', 'bdo', 'big', 'blockquote', 'body', 'br', 'button',
-        'canvas', 'caption', 'center', 'cite', 'code', 'col',
-        'colgroup', 'data', 'datalist', 'dd', 'del', 'details',
-        'dfn', 'dialog', 'dir', 'div', 'dl', 'dt', 'em', 'embed',
-        'fieldset', 'figcaption', 'figure', 'font', 'footer',
-        'form', 'frame', 'frameset',
-        'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'head', 'header',
-        'hr', 'html', 'i', 'iframe', 'img', 'input', 'ins', 'kbd',
-        'label', 'legend', 'li', 'link', 'main', 'map', 'mark',
-        'meta', 'meter', 'nav', 'noframes', 'noscript', 'object',
-        'ol', 'optgroup', 'option', 'output', 'p', 'param',
-        'picture', 'pre', 'progress', 'q', 'rp', 'rt', 'ruby',
-        's', 'samp', 'script', 'section', 'select', 'small',
-        'source', 'span', 'strike', 'strong', 'style', 'sub',
-        'summary', 'sup', 'svg', 'table', 'tbody', 'td', 'template',
-        'textarea', 'tfoot', 'th', 'thead', 'time', 'title', 'tr',
-        'track', 'tt', 'u', 'ul', 'var', 'video', 'wbr'];
-
-    let counter = {};
-    tags.forEach((tag) => {
-        counter[`${tag}_count`] = el.querySelectorAll(tag).length;
-    });
-
-    let averages = {};
-    if (el.children.length > 0) {
-        averages.avg_top = Array.from(el.children).reduce((acc, child) =>
-                acc + (offset(child).top - position.top), 0) / el.children.length;
-        averages.weighted_top = calculate_weighted_avg(el, (elem) =>
-                offset(elem).top - position.top, 1).weighted_avg;
-        averages.sd_top = Math.sqrt(Array.from(el.children).reduce((acc, child) =>
-                acc + ((averages.avg_top - offset(child).top)**2), 0) / el.children.length);
-
-        averages.avg_left = Array.from(el.children).reduce((acc, child) =>
-                acc + (offset(child).left - position.left), 0) / el.children.length;
-        averages.weighted_left = calculate_weighted_avg(el, (elem) =>
-                offset(elem).left - position.left, 1).weighted_avg;
-        averages.sd_left = Math.sqrt(Array.from(el.children).reduce((acc, child) =>
-                acc + ((averages.avg_left - offset(child).left)**2), 0) / el.children.length);
-
-        averages.avg_height = Array.from(el.children).reduce((acc, child) =>
-                acc + (dimension(child).height - dimension(el).height), 0) / el.children.length;
-        averages.weighted_height = calculate_weighted_avg(el, (elem) =>
-                dimension(elem).height, 1).weighted_avg;
-        averages.sd_height = Math.sqrt(Array.from(el.children).reduce((acc, child) =>
-                acc + ((averages.avg_height - dimension(child).height)**2), 0) / el.children.length);
-
-        averages.avg_width = Array.from(el.children).reduce((acc, child) =>
-                acc + (dimension(child).width - dimension(el).width), 0) / el.children.length;
-        averages.weighted_width = calculate_weighted_avg(el, (elem) =>
-                dimension(elem).width, 1).weighted_avg;
-        averages.sd_width = Math.sqrt(Array.from(el.children).reduce((acc, child) =>
-                acc + ((averages.avg_width - dimension(child).width)**2), 0) / el.children.length);
-    } else {
-        averages.avg_top = -1;
-        averages.weighted_top = -1;
-        averages.sd_top = -1;
-        averages.avg_left = -1;
-        averages.weighted_left = -1;
-        averages.sd_left = -1;
-        averages.avg_height = -1;
-        averages.weighted_height = -1;
-        averages.sd_height = -1;
-        averages.avg_width = -1;
-        averages.weighted_width = -1;
-        averages.sd_width = -1;
-    }
-
-    let body = document.body, html = document.documentElement;
-    return {
-        url: window.location.href,
-        tagName: el.tagName,
-        role: el.getAttribute('role'),
-        top: position.top,
-        left: position.left,
-        height: dimension(el).height,
-        width: dimension(el).width,
-        childs_count: el.querySelectorAll('*').length,
-        window_height: Math.max(body.scrollHeight, body.offsetHeight, html.clientHeight, html.scrollHeight, html.offsetHeight),
-        window_elements_count: document.querySelectorAll('*').length,
-        className: el.className,
-        parent_landmark: landmark_parent(el.parentElement),
-        label: label_for(el),
-        xpath: get_xpath(el),
-        word_count: count_words(el),
-        ...counter,
-        ...averages
-    };
-};
-
-
-var list = window.mutations_observed;
-window.mutations_observed = [];
-return [get_all_features(target), list.map((el) => get_all_features(el))];
-        ''')
-
-        print(f'Found {len(list_of_mutations[1])} mutations for {className}-{event}.')
         print(f'Writing mutations to {results_dir}/{domain}/mutations-{className}-{event}.json...')
         with open(f'./{results_dir}/{domain}/mutations-{className}-{event}.json', 'w') as f:
             f.write(str(list_of_mutations))
