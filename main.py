@@ -131,7 +131,7 @@ for node in nodes_with_listeners:
                 driver.save_screenshot(f'./{results_dir}/{domain}/screenshot-{className}-hover.png')
             if (ariaExpanded is not None and ariaExpanded == 'false' and event == 'click') or event == 'focus':
                 chain.move_to_element(target).pause(1).click().pause(2).perform()
-                driver.save_screenshot(f'./{results_dir}/{domain}/screenshot-{className}-focus.png')
+                driver.save_screenshot(f'./{results_dir}/{domain}/screenshot-{className}-{event}.png')
             if event == 'keydown' or event == 'keyup' or event == 'keypress' or event == 'change' or event == 'input':
                 chain.move_to_element(target).send_keys('a').pause(2).perform()
                 driver.save_screenshot(f'./{results_dir}/{domain}/screenshot-{className}-key.png')
