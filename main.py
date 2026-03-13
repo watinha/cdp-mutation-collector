@@ -44,11 +44,23 @@ window.mutations_observed = [];
 var observer = new MutationObserver(function(mutations) {
     mutations.forEach(function(mutation) {
         var target = mutation.target;
-        window.mutations_observed.push(target);
+        window.mutations_observed.push({
+            'type': mutation.type,
+            'attributeName': mutation.attributeName,
+            'addedNodes': mutation.addedNodes,
+            'removedNodes': mutation.removedNodes,
+            'target': target
+        });
         if (mutation.addedNodes) {
             for (var i = 0; i < mutation.addedNodes.length; i++) {
                 if (mutation.addedNodes[i].nodeType === 1)
-                    window.mutations_observed.push(mutation.addedNodes[i]);
+                    window.mutations_observed.push({
+                        'type': mutation.type,
+                        'attributeName': null,
+                        'addedNodes': [],
+                        'removedNodes': [],
+                        'target': mutation.addedNodes[i]
+                    });
             };
         }
 
@@ -221,7 +233,8 @@ for node in nodes_with_listeners:
 
         return { weighted_sum, size, weighted_avg: weighted_sum / size };
     }
-    function get_all_features(el) {
+    function get_all_features(mutation) {
+        const el = mutation.target;
         const position = offset(el);
         const tags = [
             'a', 'abbr', 'acronym', 'address', 'applet', 'area',
@@ -310,6 +323,9 @@ for node in nodes_with_listeners:
             label: label_for(el),
             xpath: get_xpath(el),
             word_count: count_words(el),
+            mutation_type: mutation.type,
+            mutation_attributeName: mutation.attributeName,
+            outerHTML: el.outerHTML,
             ...counter,
             ...averages
         };
@@ -318,7 +334,7 @@ for node in nodes_with_listeners:
 
     var list = window.mutations_observed;
     window.mutations_observed = [];
-    return [get_all_features(target), list.map((el) => get_all_features(el))];
+    return [get_all_features({ target }), list.map((el) => get_all_features(el))];
             ''')
 
             print(f'Found {len(list_of_mutations[1])} mutations for {className}-{event}.')
@@ -331,6 +347,10 @@ for node in nodes_with_listeners:
         if len(list_of_mutations[1]) > 0:
             print(f'Writing mutations to {results_dir}/{domain}/mutations-{className}-{event}.json...')
             with open(f'./{results_dir}/{domain}/mutations-{className}-{event}.json', 'w') as f:
+                list_of_mutations.append(f'./{results_dir}/{domain}/screenshot-{className}-hover.png')
+                list_of_mutations.append(f'./{results_dir}/{domain}/screenshot-{className}-{event}.png')
+                list_of_mutations.append(f'./{results_dir}/{domain}/screenshot-{className}-key.png')
+
                 f.write(str(list_of_mutations))
 
         print('\n')
