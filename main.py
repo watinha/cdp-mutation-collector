@@ -120,7 +120,7 @@ for i, nodeId in enumerate(all_nodeIds):
 
 print(f'Found {len(nodes_with_listeners)} nodes with event listeners.')
 print('Dispatching events, recording mutations and taking screenshots...')
-for node in nodes_with_listeners:
+for index, node in enumerate(nodes_with_listeners):
     events = node['events']
     className = node['className']
     chain = ActionChains(driver)
@@ -345,8 +345,8 @@ for node in nodes_with_listeners:
 
 
         if len(list_of_mutations[1]) > 0:
-            print(f'Writing mutations to {results_dir}/{domain}/mutations-{className}-{event}.json...')
-            with open(f'./{results_dir}/{domain}/mutations-{className}-{event}.json', 'w') as f:
+            print(f'Writing mutations to {results_dir}/{domain}/mutations-{className}-{event}-{index}.json...')
+            with open(f'./{results_dir}/{domain}/mutations-{className}-{event}-{index}.json', 'w') as f:
                 list_of_mutations.append(f'./{results_dir}/{domain}/screenshot-{className}-hover.png')
                 list_of_mutations.append(f'./{results_dir}/{domain}/screenshot-{className}-{event}.png')
                 list_of_mutations.append(f'./{results_dir}/{domain}/screenshot-{className}-key.png')
